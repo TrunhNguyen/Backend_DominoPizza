@@ -122,10 +122,12 @@ def view_cart(request, version):
         serializer = CartDetailSerializers(mycart, many=True)  #hiển thị product chi tiết
     else:
         return Response({"error": "API version này chưa được hỗ trợ"}, status=status.HTTP_400_BAD_REQUEST)
+    cart_total = sum([item.quantity * item.product.price for item in mycart])
     return Response({
         "status": "success",
-        "message": "Giỏ hàng của bạn",
-        "cart": serializer.data
+        "message": "Giỏ hàng của bạn:",
+        "cart": serializer.data,
+        "cart_total": cart_total
     }, status=status.HTTP_200_OK)
 
 #api lấy thông tin sản phẩm với id

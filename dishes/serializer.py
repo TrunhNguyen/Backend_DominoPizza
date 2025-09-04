@@ -12,22 +12,26 @@ class PizzaSerializers(serializers.ModelSerializer):
 class OrderSerializers(serializers.ModelSerializer):
     product = PizzaSerializers(read_only=True)
     customer = serializers.StringRelatedField(read_only=True)  
-
     class Meta:
         model = Orders
         fields = ['id', 'product', 'customer', 'quantity', 'order_time']
 
 class CartSerializers(serializers.ModelSerializer):
+    total_price = serializers.SerializerMethodField()
     class Meta:
         model = Cart
-        fields = ['id', 'product', 'quantity']
+        fields = ['id', 'product', 'quantity', 'total_price']
+    def get_total_price(self, obj):
+        return obj.quantity * obj.product.price
 
 class CartDetailSerializers(serializers.ModelSerializer):
     product = PizzaSerializers(read_only=True)  
-
+    total_price = serializers.SerializerMethodField()
     class Meta:
         model = Cart
-        fields = ['id', 'product', 'quantity']
+        fields = ['id', 'product', 'quantity', 'total_price']
+    def get_total_price(self, obj):
+        return obj.quantity * obj.product.price
 
 class RegisterSerializers(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -50,7 +54,6 @@ class RegisterSerializers(serializers.ModelSerializer):
 class CustomLoginSerializers(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-
         data.update({
             "status": "success",
             "message": f"Xin chào {self.user.first_name or 'Người dùng'}!"
