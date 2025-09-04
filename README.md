@@ -1,48 +1,42 @@
+🔑 API Endpoints chính
+Auth
 
-# Dự án cửa hàng pizza Domino
+POST /api/register/ – Đăng ký
 
-## Giới thiệu
+POST /api/login/ – Đăng nhập (JWT)
 
-Đây là ứng dụng web giúp khách hàng xem danh sách pizza, thêm vào giỏ hàng, và xem tổng giá tiền.
+Pizza
 
-## Cách chạy dự án (vào terminal)
+GET /api/pizzas/ – Danh sách Pizza
 
-1. Tạo môi trường ảo:
+GET /api/pizzas/<id>/ – Chi tiết Pizza
 
-python -m venv venv
+Cart
 
-2. Kích hoạt môi trường:
+POST /api/cart/add/<id>/ – Thêm Pizza vào giỏ
 
-- Windows:
+POST /api/cart/remove/<id>/ – Xóa 1 Pizza khỏi giỏ
 
-venv\Scripts\activate
+POST /api/cart/clear/ – Xóa toàn bộ giỏ
 
-- macOS/Linux:
+GET /api/cart/ – Xem giỏ hàng
 
-source venv/bin/activate
+Orders
 
-3. Truy cập vào project:
+POST /api/orders/place/ – Đặt hàng
 
-cd venv
-cd DominoPizza
+GET /api/orders/ – (Admin) Danh sách đơn hàng
 
-4. Cài đặt thư viện:
+POST /api/orders/delete/<id>/ – (Admin) Xóa đơn hàng
 
-pip install -r requirement.txt
+🛠️ Ghi chú
 
-5. Import Database:
+File cấu hình DB nằm trong settings.py, mặc định dùng SQLite. Nếu muốn dùng PostgreSQL thì chỉnh lại DATABASES.
 
-- CREATE DATABASE mydb
-- psql -U postgres mydb < backup.sql
-- cp settings_local.example.py settings_local.py
-- mở settings_local.py và thay thông tin của mình vào
+API có phân quyền bằng permission_classes:
 
-6. Chạy server:
+AllowAny → ai cũng gọi được
 
-python manage.py runserver
+IsAuthenticated → yêu cầu đăng nhập
 
-
-7. Mở trình duyệt vào địa chỉ: 
-
-http://127.0.0.1:8000/
-
+IsAdminUser → chỉ admin được phép
