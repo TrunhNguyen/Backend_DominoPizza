@@ -1,165 +1,205 @@
-from django.http import HttpResponse
-from django.template import loader
-from .models import Products, Orders
-from django.shortcuts import redirect, get_object_or_404, render
-from rest_framework.decorators import api_view
+from .models import Products, Orders, Cart
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from .serializer import PizzaSerializers
-from django.contrib import messages
-from django.contrib.auth.models import User
-from django.contrib.auth.hashers import make_password, check_password
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework import status
+from .serializer import PizzaSerializers, OrderSerializers, CartSerializers, CartDetailSerializers, RegisterSerializers, CustomLoginSerializers
+from django.contrib.auth.models import User  #model user có sẵn của django
 
-@login_required
-def dishes_view(request):
-    pizzalist = Products.objects.all().values()
-    template = loader.get_template('pizzalist.html')
-    context = {
-        'pizzalist': pizzalist,
-    }
-    return HttpResponse(template.render(context, request))
+"""
+- Api_view: Biến hàm python thành REST API Endpoint
+- Permission_classes: Check quyền
+    AllowAny: ai cũng gọi được (không cần token)
+    IsAuthenticated: chỉ user đăng nhập (token còn hạn)
+    IsAdminUser: chỉ admin (user.is_staff = True)
+    IsAuthenticatedOrReadOnly: GET cho ai cũng được, POST/PUT/DELETE thì cần đăng nhập
+- Serializer: biến dữ liệu từ Model sang JSON
+"""
 
-@login_required
-def homepage(request):
-    return render(request, 'homepage.html')
-
-@login_required
-def comingsoon(request):
-    template = loader.get_template('404.html')
-    return HttpResponse(template.render())
-
-@login_required
+#api thêm vào giỏ hàng
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def carting(request, id):
-    cart = request.session.get('cart', {})
     dish = get_object_or_404(Products, id=id)
-    item_id = str(dish.id)
-    if item_id in cart:
-        cart[item_id]['quantity'] += 1
-    else:
-        cart[item_id] = {
-            'name': dish.name,
-            'price': int(float(dish.price)),
-            'quantity': 1
-        }
-    request.session['cart'] = cart
-    return redirect(view_cart)
+    cart_item, created = Cart.objects.get_or_create(user=request.user, product=dish)
+    if not created:
+        cart_item.quantity += 1
+        cart_item.save()
+    mycart = Cart.objects.filter(user=request.user)
+    serializer = CartSerializers(mycart, many=True)
+    return Response({
+        "status": "success",
+        "message": f"Thêm {dish.name} to cart",
+        "cart": serializer.data
+    }, status=status.HTTP_200_OK)
 
-@login_required
-def view_cart(request):
-    cart = request.session.get('cart', {})
-    total_price = sum(item['price'] * item['quantity'] for item in cart.values())
-    context = {
-        'cart': cart,
-        'total_price': int(total_price),
-    }
-    return render(request, 'cart.html', context)
-
-@login_required
+#api xóa khỏi giỏ hàng
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
 def uncarting(request, id):
-    cart = request.session.get('cart', {})
     dish = get_object_or_404(Products, id=id)
-    item_id = str(dish.id)
+    try:
+        cart_item = Cart.objects.get(user=request.user, product=dish)
+    except Cart.DoesNotExist:
+        return Response({
+            "status": "error",
+            "message": f"{dish.name} không có trong giỏ hàng"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    if cart_item.quantity > 1:
+        cart_item.quantity -= 1
+        cart_item.save()
+    else:
+        cart_item.delete()
+    mycart = Cart.objects.filter(user=request.user)
+    serializer = CartSerializers(mycart, many=True)
+    return Response({
+        "status": "success",
+        "message": f"Đã xoá {dish.name} khỏi giỏ hàng",
+        "cart": serializer.data
+    }, status=status.HTTP_200_OK)
 
-    if item_id in cart:
-        cart[item_id]['quantity'] -= 1
-        if cart[item_id]['quantity'] == 0:
-            del cart[item_id]
-    request.session['cart'] = cart
-    return redirect(view_cart)
-
-@login_required
+#api xóa toàn bộ giỏ hàng
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
 def deleteall(request):
-    request.session['cart'] = {}
-    return redirect(view_cart)
+    Cart.objects.filter(user=request.user).delete()
+    return Response({
+        "status": "success",
+        "message": f"Đã xóa toàn bộ giỏ hàng của bạn"
+    }, status=status.HTTP_200_OK)
 
-
+#api đăng ký
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
 def register(request):
-    if request.method == 'POST':
-        username = request.POST['username']
-        password_raw = request.POST['password']
-        password2 = request.POST['password2']
-        if not username or not password_raw:
-            messages.error(request, 'Tên đăng nhập và mật khẩu không được để trống.')
-            return render(request, 'register.html')
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'Tên đăng nhập đã tồn tại.')
-            return render(request, 'register.html')
-        if password_raw != password2:
-            messages.error(request, 'Hai mật khẩu không khớp')
-            return render(request, 'register.html')
-        user = User.objects.create_user(username=username, password=password_raw)
-        user.save()
-        return redirect('login')
-    return render(request, 'register.html')
+    serializer = RegisterSerializers(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "Đăng ký thành công!"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+#custom lại response của simplejwt trong login
+class CustomLoginView(TokenObtainPairView):
+    serializer_class = CustomLoginSerializers
 
-def custom_login(request):
-    if request.method == 'POST':
-        username = request.POST['username']
-        raw_password = request.POST['password']
-        user = authenticate(request, username=username, password=raw_password)
-        if user is not None:
-            login(request, user)
-            if user.is_superuser:
-                return redirect('admin')
-            else:
-                return redirect('homepage')
-        else:
-            messages.error(request, 'Tên đăng nhập hoặc mật khẩu không đúng')
-            return render(request, 'login.html')
-    return render(request, 'login.html')
-
-
-def custom_logout(request):
-    logout(request)
-    return redirect('login')
-
-@login_required
+#api đặt hàng
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def place_order(request):
-    cart = request.session.get('cart', {})
-    for product_id, item in cart.items():
-        try:
-            product = Products.objects.get(id=product_id)
-            Orders.objects.create(
-                product=product,
-                customer=request.user,
-                quantity=item['quantity']
-            )
-        except Products.DoesNotExist:
-            pass
-    request.session['cart'] = {}  
-    return render(request, 'order_alert.html')
+    cart_items = Cart.objects.filter(user=request.user)
+    if not cart_items.exists():
+        return Response({
+            "status": "error",
+            "message": "Giỏ hàng của bạn đang trống"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    for item in cart_items:
+        Orders.objects.create(
+            product=item.product,
+            customer=request.user,
+            quantity=item.quantity
+        )
+    cart_items.delete()
+    myorders = Orders.objects.filter(customer=request.user).order_by('id')
+    serializer = OrderSerializers(myorders, many=True)
+    return Response({
+        "status": "success",
+        "message": "Món của bạn đang được chuẩn bị",
+        "orders": serializer.data
+    }, status=status.HTTP_200_OK)
 
-def admin_dashboard(request):
-    return render(request, 'admin.html')
-
-def order_list(request):
-    orderlist = Orders.objects.select_related('product', 'customer').all()
-    template = loader.get_template('orderlist.html')
-    context = {
-        'orderlist': orderlist,
-    }
-    return HttpResponse(template.render(context, request))
-
-def delete_order(request, order_id):
-    order = get_object_or_404(Orders, id=order_id)
-    order.delete()
-    return redirect('/orderlist/')
-
+#api xem giỏ hàng
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def view_cart(request, version):
+    mycart = Cart.objects.filter(user=request.user) 
+    if request.version == 'v1':
+        serializer = CartSerializers(mycart, many=True) 
+    elif request.version == 'v2':
+        serializer = CartDetailSerializers(mycart, many=True)  #hiển thị product chi tiết
+    else:
+        return Response({"error": "API version này chưa được hỗ trợ"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({
+        "status": "success",
+        "message": "Giỏ hàng của bạn",
+        "cart": serializer.data
+    }, status=status.HTTP_200_OK)
+
+#api lấy thông tin sản phẩm với id
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def pizza_detail(request, id):
     try:
-        pizza = Products.objects.get(pk=id)
+        pizza = Products.objects.get(id=id)
     except Products.DoesNotExist:
-        return Response({'error': 'Pizza not found'}, status=404)
+        return Response({'error': 'Không tìm thấy'}, status=status.HTTP_400_BAD_REQUEST)
     serializer = PizzaSerializers(pizza)
-    return Response(serializer.data)
+    return Response(
+        {"status": "success",
+        "detail": serializer.data
+    }, status=status.HTTP_200_OK)
 
-
+#api lấy danh sách toàn bộ sản phẩm
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def pizza_list(request):
     pizza = Products.objects.all()
     serializer = PizzaSerializers(pizza, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
+#api lấy danh sách tất cả đơn hàng
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def order_list(request):
+    orderlist = Orders.objects.all().order_by('order_time')
+    paginator = PageNumberPagination()
+    paginator.page_size = 2
+    result_page = paginator.paginate_queryset(orderlist, request)
+    serializer = OrderSerializers(result_page, many=True)
+    return paginator.get_paginated_response(serializer.data)
+
+#api xóa khỏi đơn hàng
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def delete_order(request, id):
+    order = get_object_or_404(Orders, id=id)
+    order_id = order.id
+    order.delete()
+    return Response(
+        {"status": "success", 
+        "message": f"Order {order_id} đã bị xóa."
+        }, status=status.HTTP_200_OK)
+
+#api xóa hết đơn hàng
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def delete_order_all(request):
+    Orders.objects.all().delete()
+    return Response (
+        {"status": "success",
+        "message": "Đã xóa tất cả đơn hàng hiện có"
+        }, status=status.HTTP_200_OK)
+
+#api thêm món vào list
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def add_dish(request):
+    serializer = PizzaSerializers(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "Thêm món thành công!", "dish": serializer.data}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#api xóa món khỏi list
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def delete_dish(request, id):
+    try:
+        dish = Products.objects.get(id=id)
+    except Products.DoesNotExist:
+        return Response({"error": "Món không tồn tại"}, status=status.HTTP_404_NOT_FOUND)
+    dish.delete()
+    return Response({"message": "Xóa món thành công!"}, status=status.HTTP_200_OK)

@@ -27,7 +27,18 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': 'trung06052006',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
 
+SECRET_KEY = 'django-insecure-%m68e0$#sqqo7(c=$x5%)7^-e*0uls*uqa%k9bw!j$eaa552(6'
 # Application definition
 
 INSTALLED_APPS = [
@@ -137,13 +148,16 @@ LOGGING = {
         },
     },
 }
-LOGIN_REDIRECT_URL = '/home/'      
-LOGIN_URL = '/'       
-LOGOUT_REDIRECT_URL = '/'
 
-try:
-    from .settings_local import *
-except ImportError:
-    raise Exception(
-        "Missing settings_local.py — please copy settings_local.example.py and fill in SECRET_KEY, DATABASES, etc."
-    )
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
+    'DEFAULT_VERSION': 'v1',
+    'ALLOWED_VERSIONS': ('v1', 'v2'),
+    'VERSION_PARAM': 'version',
+}
