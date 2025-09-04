@@ -1,12 +1,35 @@
+# Python cache
 __pycache__/
 *.py[cod]
-.env
-env/
+*.pyo
+*.pyd
+
+# Virtual environments 
+.env/
 venv/
+env/
+.venv/
+.virtualenv/
+
+# IDE / Editor configs
 .vscode/
 .idea/
+
+# OS generated files
 .DS_Store
 Thumbs.db
+
+# Logs / Temp files
 *.log
 *.tmp
-settings_local.py
+
+# Django specific
+db.sqlite3
+
+# Static & Media (local only)
+static/
+media/
+
+# Nếu muốn repo sạch, không cần migration (tùy bạn)
+# dishes/migrations/
+# */migrations/
