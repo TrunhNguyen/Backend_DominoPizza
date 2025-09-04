@@ -1,18 +1,18 @@
-🔑 API Endpoints chính
+# 🔑 API Endpoints chính
 
-# Auth
+## Auth
 
 POST /api/register/ – Đăng ký
 
 POST /api/login/ – Đăng nhập (JWT)
 
-# Pizza
+## Pizza
 
 GET /api/pizzas/ – Danh sách Pizza
 
 GET /api/pizzas/<id>/ – Chi tiết Pizza
 
-# Cart
+## Cart
 
 POST /api/cart/add/<id>/ – Thêm Pizza vào giỏ
 
@@ -22,7 +22,7 @@ DELETE /api/cart/clear/ – Xóa toàn bộ giỏ
 
 GET /api/cart/ – Xem giỏ hàng
 
-# Orders
+## Orders
 
 POST /api/orders/place/ – Đặt hàng
 
@@ -30,14 +30,14 @@ GET /api/orders/ – (Admin) Danh sách đơn hàng
 
 DELETE /api/orders/delete/<id>/ – (Admin) Xóa đơn hàng
 
-🛠️ Ghi chú
+# 🛠️ Ghi chú
 
 File cấu hình DB nằm trong settings.py, mặc định dùng SQLite. Nếu muốn dùng PostgreSQL thì chỉnh lại DATABASES.
 
 API có phân quyền bằng permission_classes:
 
-# AllowAny → ai cũng gọi được
+## AllowAny → ai cũng gọi được
 
-# IsAuthenticated → yêu cầu đăng nhập
+## IsAuthenticated → yêu cầu đăng nhập
 
-# IsAdminUser → chỉ admin được phép
+## IsAdminUser → chỉ admin được phép
