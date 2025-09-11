@@ -133,6 +133,7 @@ def view_cart(request, version):
 #api lấy thông tin sản phẩm với id
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def pizza_detail(request, id):
     try:
         pizza = Products.objects.get(id=id)
@@ -147,6 +148,7 @@ def pizza_detail(request, id):
 #api lấy danh sách toàn bộ sản phẩm
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def pizza_list(request):
     pizza = Products.objects.all()
     serializer = PizzaSerializers(pizza, many=True)
